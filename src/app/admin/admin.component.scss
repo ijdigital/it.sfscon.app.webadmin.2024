@@ -55,6 +55,18 @@
   .header-content-right {
     display: flex;
     gap: 1.5rem;
+
+    .sync-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    
+      .last-sync-time {
+        position: absolute;
+        top: 50px;
+        font-size: 9px;
+      }
+    }
   }
 }
 
@@ -85,4 +97,34 @@
       color: #0099e3;
     }
   }
+}
+
+.alert {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+  margin-top: 1rem;
+  z-index: 50;
+  width: 100%;
+  max-width: 500px;
+  transition: opacity 0.5s ease-in-out;
+}
+
+.alert-error {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+  color: #721c24;
+}
+
+.alert-success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+  color: #155724;
+}
+
+.alert-info {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+  color: #0c5460;
 }

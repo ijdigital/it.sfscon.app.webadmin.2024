@@ -8,6 +8,7 @@ import { NzInputModule } from 'ng-zorro-antd/input';
 import { AdminService } from '../../services/admin.service';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
+import { DateFormatPipe } from '../../shared/date-format.pipe';
 
 @Component({
   selector: 'app-admin',
@@ -20,7 +21,8 @@ import { ActivatedRoute } from '@angular/router';
     NzAlertModule,
     NzInputModule,
     RouterOutlet,
-    RouterModule
+    RouterModule,
+    DateFormatPipe
   ],
   templateUrl: './admin.component.html',
   styleUrls: ['./admin.component.scss']
@@ -31,8 +33,14 @@ export class AdminComponent implements OnInit {
   router = inject(Router);
   route = inject(ActivatedRoute);
 
-  summary: { all_users: number, total_sessions: number; total_bookmarks: number; total_rates: number } | null = null;
+  syncAlert: boolean = false;
+  syncAlertMessage: string = '';
+  syncAlertDescription: string = '';
+  syncAlertType: "success" | "info" | "warning" | "error" = 'info';
 
+  summary: { all_users: number, total_sessions: number; total_bookmarks: number; total_rates: number } | null = null;
+  lastSyncTime: string | null = null;
+  
   constructor() {
     this.checkLoginStatus();
   }
@@ -44,6 +52,7 @@ export class AdminComponent implements OnInit {
     });
 
     this.getSummary();
+    this.fetchLastSyncTime();
   }
 
   checkLoginStatus(): void {
@@ -54,7 +63,6 @@ export class AdminComponent implements OnInit {
   }
 
   logout(): void {
-    console.log('Logging out');
     this.adminService.logout();
     this.router.navigate(['/login']);
   }
@@ -70,7 +78,6 @@ export class AdminComponent implements OnInit {
   getSummary(): void {
     this.adminService.getSummary().subscribe(
       data => {
-        console.log('Summary data:', data);
         this.summary = data;
       },
       error => {
@@ -79,17 +86,64 @@ export class AdminComponent implements OnInit {
     );
   }
 
+  /** Fetch last sync time */
+  fetchLastSyncTime(): void {
+    this.adminService.getLastSyncTime().subscribe(
+      data => {
+        this.lastSyncTime = data.last_sync_time; // Store the last sync time
+      },
+      error => {
+        console.error('Error fetching last sync time:', error);
+      }
+    );
+  }
+
   syncData(): void {
     this.adminService.syncData().subscribe(
         response => {
             if (response) {
-                console.log('Data synced successfully:', response);
+              
+              // Check if there were changes
+              if (response.changes && Object.keys(response.changes).length === 0) {
+                  this.syncAlertType = 'info';
+                  this.syncAlertMessage = 'No changes detected during sync.';
+                  this.syncAlertDescription = 'The data was already up-to-date.';
+              } else {
+                  this.syncAlertType = 'success';
+                  this.syncAlertMessage = 'Data synced successfully!';
+                  this.syncAlertDescription = 'Your data has been updated.';
+              }
+              
+              this.syncAlert = true; // Show the alert
+
+              this.fetchLastSyncTime();
+
+              setTimeout(() => {
+                this.syncAlert = false;
+              }, 5000);
             } else {
-                console.log('No data returned from sync.');
+              this.syncAlertType = 'info';
+              this.syncAlertMessage = 'Sync operation completed.';
+              this.syncAlertDescription = 'No data returned from sync.';
+              this.syncAlert = true; // Show the alert
+
+              this.fetchLastSyncTime();
+
+              setTimeout(() => {
+                this.syncAlert = false;
+              }, 5000);
             }
         },
         error => {
             console.error('Error during sync:', error);
+            this.syncAlertType = 'error';
+            this.syncAlertMessage = 'Error syncing data';
+            this.syncAlertDescription = 'An error occurred while syncing your data.';
+            this.syncAlert = true; // Show the alert
+
+            setTimeout(() => {
+              this.syncAlert = false;
+          }, 5000);
         }
     );
   }

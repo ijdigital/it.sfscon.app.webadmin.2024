@@ -11,7 +11,7 @@
 <nz-table
   [nzData]="filteredData"
   nzTableLayout="fixed"
-  [nzPageSize]="10"
+  [nzShowPagination]="false"
   [nzLoading]="loading"
   (nzQueryParams)="onQueryParamsChange($event)">
   <thead>
@@ -20,7 +20,7 @@
             <ng-container *ngIf="isSortableColumnItem(column); else nonSortableHeader">
                 <th 
                     [nzSortFn]="true"
-                    [nzSortOrder]="currentOrderField === column.sortField ? (currentOrderDirection || null) : null"
+                    [nzSortOrder]="currentSort.field === column.sortField ? currentSort.order : null"
                     [nzSortDirections]="column.sortDirections"
                     (nzSortOrderChange)="onSortOrderChange(column.sortField, $event)"
                     [style.width]="column.width">

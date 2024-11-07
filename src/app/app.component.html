@@ -1,1 +1,16 @@
-<router-outlet></router-outlet>
+<ng-container *ngIf="adminService.isCheckingAuth$ | async; else content">
+    <div class="spinner-container">
+        <div class="spinner"></div>
+    </div>
+</ng-container>
+
+<ng-template #content>
+    <ng-container *ngIf="adminService.loading$ | async; else routerContent">
+        <div class="spinner-container">
+            <div class="spinner"></div>
+        </div>
+    </ng-container>
+    <ng-template #routerContent>
+        <router-outlet></router-outlet>
+    </ng-template>
+</ng-template>

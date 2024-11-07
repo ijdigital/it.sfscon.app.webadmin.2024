@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpResponse, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, of, map } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
+import { NzTableSortOrder } from 'ng-zorro-antd/table';
 
 @Injectable({
   providedIn: 'root',
@@ -9,6 +10,12 @@ import { tap, catchError } from 'rxjs/operators';
 export class AdminService {
   private tokenSubject: BehaviorSubject<string | null> = new BehaviorSubject<string | null>(null);
   public token$: Observable<string | null> = this.tokenSubject.asObservable();
+
+  private loadingSubject = new BehaviorSubject<boolean>(false);
+  loading$ = this.loadingSubject.asObservable();
+
+  private isCheckingAuthSubject = new BehaviorSubject<boolean>(false); // New state
+  isCheckingAuth$ = this.isCheckingAuthSubject.asObservable(); // Observable for checking state
 
   constructor(private http: HttpClient) {
     this.loadTokens();
@@ -52,6 +59,16 @@ export class AdminService {
     }
   }
 
+  /** Set loading state */
+  setLoading(isLoading: boolean): void {
+    this.loadingSubject.next(isLoading);
+  }
+
+  /** Set checking authentication state */
+  setCheckingAuth(isChecking: boolean): void {
+    this.isCheckingAuthSubject.next(isChecking);
+  }
+
   /** Helper method to create headers with the normal token */
   private createHeaders(): HttpHeaders {
     const token = this.tokenSubject.value;
@@ -63,7 +80,6 @@ export class AdminService {
   /** Get event summary */
   getSummary(): Observable<any> {
     const headers = this.createHeaders();
-    console.log('Fetching summary with headers', headers);
     
     return this.http.get<any>(`/api/admin/summary`, { headers }).pipe(
       map(response => response),
@@ -75,54 +91,77 @@ export class AdminService {
   }
 
   /** Get conferences method with normal token */
-  getConferences(orderField?: string, orderDirection?: string): Observable<any[]> {
+  getConferences(orderField?: string, orderDirection?: NzTableSortOrder | undefined, csv: boolean = false): Observable<any[]> {
     const headers = this.createHeaders();
     let params = new HttpParams();
       
-    if (orderField && orderDirection) {
-      params = params
-        .set('order_field', orderField)
-        .set('order_direction', orderDirection);
+    if (orderField) {
+      // Determine the order parameter based on direction
+      const order = orderDirection === 'ascend' 
+          ? orderField 
+          : orderDirection === 'descend' 
+              ? `-${orderField}`
+              : undefined;
+      
+      if (order) {
+          params = params.set('order', order);
+      }
+    }
+
+    if (csv) {
+      params = params.set('csv', 'true');
     }
       
     return this.http.get<{ data: any[] }>('/api/admin/sessions', {
       headers,
       params
     }).pipe(
-      map(response => response.data),
-      catchError(error => {
-        console.error('Error fetching sessions', error);
-        return [];
-      })
+        map(response => response.data),
+        catchError(error => {
+            console.error('Error fetching sessions', error);
+            return of([]);
+        })
     );
   }
 
   /** Get attendees method with normal token */
-  getAttendees(orderField?: string, orderDirection?: string): Observable<any[]> {
+  getAttendees(orderField?: string, orderDirection?: NzTableSortOrder | undefined, csv: boolean = false): Observable<any[]> {
     const headers = this.createHeaders();
     let params = new HttpParams();
-      
-    if (orderField && orderDirection) {
-      params = params
-        .set('order_field', orderField)
-        .set('order_direction', orderDirection);
+
+    // Set the 'order' parameter based on the orderField and orderDirection
+    if (orderField) {
+        // Determine the order parameter based on direction
+        const order = orderDirection === 'ascend' 
+            ? orderField 
+            : orderDirection === 'descend' 
+                ? `-${orderField}`
+                : undefined;
+        
+        if (order) {
+            params = params.set('order', order);
+        }
     }
-      
+    
+    // Set the 'csv' parameter if requested
+    if (csv) {
+        params = params.set('csv', 'true');
+    }
+    
     return this.http.get<{ data: any[] }>('/api/admin/users', {
-      headers,
-      params
+        headers,
+        params
     }).pipe(
-      map(response => response.data),
-      catchError(error => {
-        console.error('Error fetching attendees', error);
-        return [];
-      })
+        map(response => response.data),
+        catchError(error => {
+            console.error('Error fetching attendees', error);
+            return of([]);
+        })
     );
   }
 
   syncData(): Observable<any> {
     const headers = this.createHeaders();
-    console.log('Syncing data with headers', headers);
     return this.http.post<any>('/api/admin/import-xml', {}, { headers }).pipe(
       map(response => response),
       catchError(error => {
@@ -130,6 +169,12 @@ export class AdminService {
         return of(null);
       })
     );
+  }
+
+  // Method to fetch last sync time
+  getLastSyncTime(): Observable<{ last_sync_time: string }> {
+    const headers = this.createHeaders();
+    return this.http.get<{ last_sync_time: string }>('/api/admin/last-sync-time', { headers });
   }
 
   private downloadCsv(url: string, fallbackFilename: string): void {

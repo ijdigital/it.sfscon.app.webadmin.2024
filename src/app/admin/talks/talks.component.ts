@@ -76,16 +76,40 @@ export class TalksComponent implements OnInit {
   filteredData: models.TalksDataItem[] = [];
   searchTerm: string = '';
 
-  currentOrderField?: string;
-  currentOrderDirection?: string;
+  currentSort: {
+    field: string | null;
+    order: NzTableSortOrder;
+  } = {
+    field: null,
+    order: null
+  };
 
   ngOnInit(): void {
     this.loadConferences();
-
+  
     this.route.queryParams.subscribe(params => {
       this.searchTerm = params['search'] || '';
-      this.currentOrderField = params['orderField'];
-      this.currentOrderDirection = params['orderDirection'];
+      const sortParam = params['sort'] || '';
+  
+      if (sortParam) {
+        if (sortParam.startsWith('-')) {
+          this.currentSort = {
+            field: sortParam.substring(1),
+            order: 'descend'
+          };
+        } else {
+          this.currentSort = {
+            field: sortParam,
+            order: 'ascend'
+          };
+        }
+      } else {
+        this.currentSort = {
+          field: null,
+          order: null
+        };
+      }
+  
       this.filterData();
     });
   }
@@ -93,51 +117,82 @@ export class TalksComponent implements OnInit {
   onQueryParamsChange(params: NzTableQueryParams): void {
     const { sort } = params;
     const currentSort = sort.find(item => item.value !== null);
-    
+  
+    // Reset all other sorts
     if (currentSort) {
       const sortIndex = Number(currentSort.key);
+      const column = this.listOfColumn[sortIndex];
   
-      if (sortIndex >= 0 && sortIndex < this.listOfColumn.length) {
-        const column = this.listOfColumn[sortIndex];
+      if (this.isSortableColumnItem(column)) {
+        // Update current sort state
+        this.currentSort = {
+          field: column.sortField,
+          order: currentSort.value
+        };
   
-        if (this.isSortableColumnItem(column)) {
-          this.currentOrderField = column.sortField;
-          this.currentOrderDirection = currentSort.value || undefined;
+        // Construct the sort parameter
+        const sortValue = currentSort.value === 'ascend'
+          ? column.sortField
+          : currentSort.value === 'descend'
+            ? `-${column.sortField}`
+            : '';
   
-          // Update URL with sort parameters
-          this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: {
-              orderField: this.currentOrderField,
-              orderDirection: this.currentOrderDirection
-            },
-            queryParamsHandling: 'merge'
-          });
+        // Update URL with sort parameters
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { sort: sortValue || null },
+          queryParamsHandling: 'merge'
+        });
   
-          this.loadConferences();
-        }
+        this.loadConferences();
       }
+    } else {
+      // Reset sorting if no sort is active
+      this.currentSort = {
+        field: null,
+        order: null
+      };
+  
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { sort: null },
+        queryParamsHandling: 'merge'
+      });
+  
+      this.loadConferences();
     }
   }
   
-  isSortableColumnItem(item: models.ColumnItem): item is models.SortableColumnItem {
-    return item.sortable === true;
+  isSortableColumnItem(item: models.ColumnItem | undefined): item is models.SortableColumnItem {
+    return !!item && item.sortable === true;
   }
 
   onSortOrderChange(sortField: string, sortOrder: NzTableSortOrder): void {
-    this.currentOrderField = sortField;
-    this.currentOrderDirection = sortOrder || undefined;
-
+    // Check if the sortOrder is already active on the same field
+    if (this.currentSort.field === sortField && this.currentSort.order === sortOrder) {
+      return;
+    }
+  
+    // Update current sort state
+    this.currentSort = {
+      field: sortOrder ? sortField : null,
+      order: sortOrder
+    };
+  
+    // Construct the sort parameter
+    const sortValue = sortOrder === 'ascend'
+      ? sortField
+      : sortOrder === 'descend'
+        ? `-${sortField}`
+        : null;
+  
     // Update URL with the new sort parameters
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: {
-        orderField: this.currentOrderField,
-        orderDirection: this.currentOrderDirection,
-      },
+      queryParams: { sort: sortValue },
       queryParamsHandling: 'merge',
     });
-
+  
     // Reload data with the new sorting applied
     this.loadConferences();
   }
@@ -145,19 +200,19 @@ export class TalksComponent implements OnInit {
   /** Load conferences from the service */
   loadConferences(): void {
     this.loading = true;
-    this.adminService.getConferences(this.currentOrderField, this.currentOrderDirection)
+    this.adminService.getConferences(this.currentSort.field || undefined, this.currentSort.order)
     .subscribe({
       next: (data: models.TalksDataItem[]) => {
         this.listOfData = data;
         this.filterData();
         this.loading = false;
       },
-      error: error => {
+      error: (error: any) => {
         console.error('Error loading conferences', error);
         this.loading = false;
       }
     });
-}
+  }
 
   /** Filter data based on searchTerm */
   filterData(): void {
@@ -165,7 +220,7 @@ export class TalksComponent implements OnInit {
       const searchTermLower = this.searchTerm.toLowerCase();
       this.filteredData = this.listOfData.filter(item =>
         item.title.toLowerCase().includes(searchTermLower) ||
-        item.speakers.toLowerCase().includes(searchTermLower) // Search in speakers
+        item.speakers.toLowerCase().includes(searchTermLower)
       );
     } else {
       this.filteredData = this.listOfData;

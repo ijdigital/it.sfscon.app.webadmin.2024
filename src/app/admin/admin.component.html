@@ -1,3 +1,14 @@
+<div class="relative">
+  <nz-alert 
+    *ngIf="syncAlert" 
+    [nzType]="syncAlertType"
+    [nzMessage]="syncAlertMessage" 
+    [nzDescription]="syncAlertDescription"
+    nzShowIcon 
+    class="alert"
+  ></nz-alert>
+</div>
+
 <div class="container">
     <div class="header">
         <div class="header-content-left">
@@ -20,7 +31,10 @@
             <ng-template #suffixIconSearch>
                 <span nz-icon nzType="search"></span>
             </ng-template>
-            <button nz-button type="button" (click)="syncData()">Sync data</button>
+            <div class="sync-container">
+              <button nz-button type="button" (click)="syncData()">Sync data</button>
+              <span *ngIf="lastSyncTime" class="last-sync-time">Last Sync: {{ lastSyncTime | dateFormat:'yy/MM/d HH:mm' }}</span>  
+            </div>
             <button nz-button type="button" nzType="primary" (click)="logout()">
                 Log out
             </button>

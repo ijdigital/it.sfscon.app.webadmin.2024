@@ -41,6 +41,8 @@ export class LoginComponent {
   alertDescription: string | null = null;
 
   constructor() {
+    this.adminService.setLoading(false);
+    
     this.loginForm = this.fb.group({
       username: ['', [Validators.required]],
       password: ['', Validators.required],
@@ -76,29 +78,29 @@ export class LoginComponent {
 
   login(): void {
     const { username, password } = this.loginForm.value;
-
+  
     this.adminService.login(username, password).subscribe({
       next: (response) => {
         if (response) {
-          console.log('Login successful');
-          this.router.navigate(['/'], { state: { loginSuccess: 'You have logged in!' } });
+          // Navigate to the desired route after a successful login
+          this.router.navigate(['/talks'], { state: { loginSuccess: 'You have logged in!' } });
         } else {
-          console.error('Login failed');
-          this.loginError = 'Invalid credentials';
-          this.alertDescription = 'Please try again';
-          setTimeout(() => {
-            this.loginError = null;
-          }, 5000);
+          this.handleLoginError();
         }
       },
       error: (err) => {
         console.error('Error during login', err);
-        this.loginError = 'Invalid credentials';
-        this.alertDescription = 'Please try again';
-        setTimeout(() => {
-          this.loginError = null;
-        }, 5000);
+        this.handleLoginError();
       }
     });
+  }
+  
+  // Helper method to handle login errors
+  private handleLoginError(): void {
+    this.loginError = 'Invalid credentials';
+    this.alertDescription = 'Please try again';
+    setTimeout(() => {
+      this.loginError = null;
+    }, 5000);
   }
 }
